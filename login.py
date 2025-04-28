@@ -10,6 +10,7 @@ import requests
 import re
 import bs4
 from PIL import Image
+import io
 
 charset = [' '] + ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] + ['+', '-', '×'] + ['=']
 
@@ -28,10 +29,10 @@ net.load_state_dict(torch.load('last.pt'))
 
 def decode(sequence):
     a = ''.join([charset[x] for x in sequence])
-    s = ''.join([x for j, x in enumerate(a[:-1]) if x != charset[0] and x != a[j+1]])
+    s = ''.join([x for j, x in enumerate(a[:-1]) if x != charset[0]])
     if len(s) == 0:
         return ''
-    if a[-1] != charset[0] and s[-1] != a[-1]:
+    if a[-1] != charset[0]:
         s += a[-1]
     return s
 
@@ -54,7 +55,8 @@ def login(id, password, patient=20):
     soup = bs4.BeautifulSoup(res.text, 'html.parser')
     lt = soup.find('input', id='id_captcha_0')['value']
     csrfmiddlewaretoken = soup.find('input', attrs={'name': 'csrfmiddlewaretoken'})['value']
-    url2 = 'https://cas.bjtu.edu.cn/captcha/image/' + lt + '/'
+    url2 = 'https://cas.bjtu.edu.cn/image/' + lt + '/'
+    hash_lt = lt
     flag = 1
     while flag:
         try:
@@ -66,9 +68,9 @@ def login(id, password, patient=20):
             if patient == 0:
                 print('totally failed')
                 return -1
-    with open('captcha.jpg', 'wb') as f:
-        f.write(res2.content)
-    img = Image.open('captcha.jpg')
+    img_bytes = io.BytesIO(res2.content)
+    img = Image.open(img_bytes)
+    image_content = res2.content
     img = to_tensor(img).to(device)
     img = img.unsqueeze(0)
     preds = net(img)
@@ -121,16 +123,17 @@ def login(id, password, patient=20):
                 return -1
     #print(res3.headers)
     #print(res3.cookies)
-    if res3.cookies.get('csrftoken') != None:
+    try:
         soup = bs4.BeautifulSoup(res3.text, 'html.parser')
-        lt = soup.find('div', class_ = 'profile-info-value').text
-        print('欢迎回来', lt)
+        lt = soup.find('div', class_ = 'sidebar-shortcuts-large').text
+        print(f'登录成功，欢迎同学')
+        
         return res3.cookies.get('csrftoken')
-    else:
-
-        with open('detect_failed/' + order +'.jpg', 'wb') as f:
-            f.write(res2.content)
-        return login(id, password, patient)
+    except:
+        with open('detect_failed/' + hash_lt +'.png', 'wb') as f:
+            f.write(image_content)
+        print('not ok')
+        return None
 
 id = ''         #输入学号
 passwd = ''     #输入密码mis的，你自己设置的！！！
