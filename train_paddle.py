@@ -12,12 +12,14 @@ import matplotlib.pyplot as plt
 import os
 import csv
 
+
 charset = [' '] + ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] + ['+', '-', '*'] + ['=']
 chardict = {}
 i = 0
 for char in charset:
     chardict[char] = i
     i += 1
+
 
 class CapchaDataset(Dataset):
     def __init__(self, char_dict, data, labels, input_length, label_length):
@@ -85,14 +87,13 @@ def decode_target(target):
 
 
 def decode(sequence):
-    decoded = []
-    prev_char = None
-    for x in sequence:
-        char = charset[x]
-        if char != prev_char and char != ' ':
-            decoded.append(char)
-        prev_char = char
-    return ''.join(decoded)
+    a = ''.join([charset[x] for x in sequence])
+    s = ''.join([x for j, x in enumerate(a[:-1]) if x != charset[0] and x != a[j + 1]])
+    if len(s) == 0:
+        return ''
+    if a[-1] != charset[0] and s[-1] != a[-1]:
+        s += a[-1]
+    return s
 
 
 log = open('log.txt', 'w+', encoding='utf-8')
