@@ -109,16 +109,13 @@ def eval_acc(targets, preds):
         log.write(decode_target(gt) + " " + decode(pred) + '\n')
     return a.mean()
 
-def train(model,epochs=10):
+def train(model, epochs=10):
     model.train()
     optim = paddle.optimizer.Adam(
         learning_rate=0.0002,
         parameters=model.parameters(),
-        grad_clip=paddle.nn.ClipGradByGlobalNorm(clip_norm=5.0)
+        grad_clip=paddle.nn.ClipGradByGlobalNorm(clip_norm=1.0)
     )
-    """
-    第118行的作用？
-    """
     # 用Adam作为优化函数
     for epoch in range(epochs):
         acc1=[]
@@ -146,12 +143,11 @@ def train(model,epochs=10):
 model = CRNN(len(charset))
 train(model)
 
-paddle.save(model.state_dict(), 'model2.pdparams')
-model.set_state_dict(paddle.load('model2.pdparams'))
+paddle.save(model.state_dict(), 'model.pdparams')
+model.set_state_dict(paddle.load('model.pdparams'))
 # 加载测试数据集
 def test(model):
     model.eval()
-    batch_size = 64
     acc1 = []
     for batch_id, data in enumerate(test_loader()):
         img = data[0]
