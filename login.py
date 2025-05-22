@@ -137,4 +137,5 @@ def login(id, password, patient=20):
 
 id = ''         #输入学号
 passwd = ''     #输入密码mis的，你自己设置的！！！
-print(login(id, passwd))
+for i in range(1,1000):
+    print(login(id, passwd))

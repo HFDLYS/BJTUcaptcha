@@ -1,0 +1,10 @@
+torch
+torchvision
+torchkeras
+numpy
+requests
+pillow
+ipython
+accelerate
+beautifulsoup4
+matplotlib
