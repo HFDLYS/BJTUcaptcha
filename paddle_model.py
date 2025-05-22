@@ -1,6 +1,11 @@
 import paddle
 import paddle.nn as nn
-from paddle.nn.initializer import KaimingNormal, XavierNormal, Constant, Orthogonal
+from paddle.vision.transforms import Compose, Normalize
+import numpy as np
+import matplotlib.pyplot as plt
+import paddle.nn.functional as F
+from paddle.metric import Accuracy
+from collections import OrderedDict
 
 class CRNN(paddle.nn.Layer):
     def __init__(self, n_classes, input_shape=(3, 42, 130)):
@@ -46,6 +51,10 @@ class CRNN(paddle.nn.Layer):
         return x
 
     def _initialize_weights(self):
+        import paddle
+        import paddle.nn as nn
+        from paddle.nn.initializer import KaimingNormal, XavierNormal, Constant, Orthogonal
+
         # 定义初始化器
         kaiming_normal = KaimingNormal(nonlinearity='relu')
         xavier_uniform = XavierNormal()

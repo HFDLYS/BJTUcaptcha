@@ -2,14 +2,15 @@ import paddle
 import paddle
 import paddle.nn.functional as F
 from paddle.metric import Accuracy
-from model import CRNN
+from paddle_model import CRNN
 from paddle.io import DataLoader,Dataset
 from paddle.vision.transforms import Compose, Normalize
 
+import numpy as np
 from PIL import Image
+import matplotlib.pyplot as plt
 import os
 import csv
-
 
 charset = [' '] + ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] + ['+', '-', '*'] + ['=']
 chardict = {}
@@ -17,7 +18,6 @@ i = 0
 for char in charset:
     chardict[char] = i
     i += 1
-
 
 class CapchaDataset(Dataset):
     def __init__(self, char_dict, data, labels, input_length, label_length):
@@ -46,7 +46,7 @@ class CapchaDataset(Dataset):
 
 print('Loading data...🤔')
 
-data = '../datasets_ok/'
+data = 'datasets_ok/'
 csv_path = os.path.join(data, 'captcha_mapping.csv')
 img_data = []
 img_label = []
@@ -85,18 +85,21 @@ def decode_target(target):
 
 
 def decode(sequence):
-    a = ''.join([charset[x] for x in sequence])
-    s = ''.join([x for j, x in enumerate(a[:-1]) if x != charset[0] and x != a[j+1]])
-    if len(s) == 0:
-        return ''
-    if a[-1] != charset[0] and s[-1] != a[-1]:
-        s += a[-1]
-    return s
+    decoded = []
+    prev_char = None
+    for x in sequence:
+        char = charset[x]
+        if char != prev_char and char != ' ':
+            decoded.append(char)
+        prev_char = char
+    return ''.join(decoded)
 
 
 log = open('log.txt', 'w+', encoding='utf-8')
 
+
 def eval_acc(targets, preds):
+
     preds_argmax = preds.detach().transpose([1, 2,0]).argmax(axis=1)
     targets = targets.numpy()
     preds_argmax = preds_argmax.numpy()
@@ -105,7 +108,7 @@ def eval_acc(targets, preds):
         log.write(decode_target(gt) + " " + decode(pred) + '\n')
     return a.mean()
 
-def train(model, epochs=20):
+def train(model,epochs=10):
     model.train()
     optim = paddle.optimizer.Adam(
         learning_rate=0.0002,
@@ -125,7 +128,7 @@ def train(model, epochs=20):
             label_lengths = data[1][2].squeeze()
             predicts = model(img)
             preds_log_softmax = F.log_softmax(predicts, axis=-1)
-            loss = F.ctc_loss(preds_log_softmax, label, input_lengths, label_lengths, blank=0)
+            loss = F.ctc_loss(preds_log_softmax, label, input_lengths, label_lengths)
             acc = eval_acc(label,predicts)
             acc1.append(acc)
             loss.backward()
@@ -147,6 +150,7 @@ model.set_state_dict(paddle.load('model2.pdparams'))
 # 加载测试数据集
 def test(model):
     model.eval()
+    batch_size = 64
     acc1 = []
     for batch_id, data in enumerate(test_loader()):
         img = data[0]
@@ -155,7 +159,7 @@ def test(model):
         label_lengths = data[1][2].squeeze()
         predicts = model(img)
         preds_log_softmax = F.log_softmax(predicts, axis=-1)
-        loss = F.ctc_loss(preds_log_softmax, label, input_lengths, label_lengths, blank=0)
+        loss = F.ctc_loss(preds_log_softmax, label, input_lengths, label_lengths)
         acc = eval_acc(label, predicts)
         acc1.append(acc)
         if batch_id % 20 == 0:

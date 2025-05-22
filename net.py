@@ -17,14 +17,11 @@ class CRNN(nn.Module):
         pools = [2, 2,1, 2,1, (2,1), 1,(2, 1)]
         modules = OrderedDict()
 
-
         def addmod(name, in_channels, out_channels, kernel_size):
             modules[f'conv{name}'] = nn.Conv2d(in_channels, out_channels, kernel_size,
                                                padding=(kernel_size // 2, kernel_size // 2))
             modules[f'bn{name}'] = nn.BatchNorm2d(out_channels)
             modules[f'relu{name}'] = nn.ReLU(inplace=True)
-
-
 
         last_channel = input_shape[0]
         for block, (n_channel, n_layer, n_kernel, k_pool) in enumerate(zip(channels, layers, kernels, pools)):
