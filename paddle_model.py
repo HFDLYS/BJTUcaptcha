@@ -1,6 +1,5 @@
 import paddle
 import paddle.nn as nn
-from paddle.distributed.auto_parallel.static.operators.common import infer_shape
 from paddle.vision.transforms import Compose, Normalize
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,7 +20,7 @@ class CRNN(paddle.nn.Layer):
 
         def addmod(in_channels, out_channels, kernel_size):
             modules.append(nn.Conv2D(in_channels, out_channels, kernel_size,
-                                     padding=(kernel_size % 2, kernel_size % 2)))
+                                     padding=(kernel_size // 2, kernel_size // 2)))
             modules.append(nn.BatchNorm2D(out_channels))
             modules.append(nn.ReLU())
 
@@ -34,25 +33,25 @@ class CRNN(paddle.nn.Layer):
         modules.append(nn.Dropout(0.25))
         self.cnn = nn.Sequential(*modules)
 
-        self.lstm = nn.LSTM(input_size=512, hidden_size=int(channels[-1] / 2), num_layers=2,
+        self.lstm = nn.LSTM(input_size=channels[-1], hidden_size=int(channels[-1] / 2), num_layers=2,
                             direction='bidirectional')
-        self.fc = nn.Linear(in_features=512, out_features=n_classes)
+        self.fc = nn.Linear(in_features=channels[-1], out_features=n_classes)
         self._initialize_weights()
 
     def forward(self, x):
         x = self.cnn(x)
-        x = x.transpose([0, 3, 1, 2])
-        x = x.reshape([x.shape[0], x.shape[1], -1])
-        x = x.transpose([1, 0, 2])
+        x = x.transpose([0, 3, 1, 2])  # 将宽度维度转为序列长度
+        x = x.reshape([x.shape[0], x.shape[1], -1])  # [batch_size, seq_len, features]
+        x = x.transpose([1, 0, 2])  # [seq_len, batch_size, features]
         x, _ = self.lstm(x)
         x = self.fc(x)
         #print(x)
         return x
 
-    def infer_features(self):
-        x = paddle.zeros(shape=[1] + list(self.input_shape))
+    def get_seq_len(self):
+        x = paddle.zeros([1, self.input_shape[0], self.input_shape[1], self.input_shape[2]])
         x = self.cnn(x)
-        x = x.reshape([x.shape[0], -1, x.shape[-1]])
+        x = x.transpose([0,3,1,2])
         return x.shape[1]
 
     def _initialize_weights(self):
@@ -100,3 +99,4 @@ class CRNN(paddle.nn.Layer):
                 kaiming_normal(layer.weight)
                 if layer.bias is not None:
                     constant_zero(layer.bias)
+
