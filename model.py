@@ -1,6 +1,5 @@
 import paddle
 import paddle.nn as nn
-from paddle.distributed.auto_parallel.static.operators.common import infer_shape
 from paddle.vision.transforms import Compose, Normalize
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,15 +11,18 @@ class CRNN(paddle.nn.Layer):
     def __init__(self, n_classes, input_shape=(3, 42, 130)):
         super().__init__()
         self.input_shape = input_shape
-        # VGG13
-        channels = [64, 128, 256, 512, 512]
+        channels = [32, 64, 128, 256, 256]
         layers = [2, 2, 2, 2, 2]
         kernels = [3, 3, 3, 3, 3]
         pools = [2, 2, 2, 2, (2, 1)]
         modules = []
 
-        def addmod(in_channels, out_channels, kernel_size):
+        def addmod(name, in_channels, out_channels, kernel_size):
             modules.append(nn.Conv2D(in_channels, out_channels, kernel_size,
+                                     padding=(kernel_size % 2, kernel_size % 2)))
+            modules.append(nn.BatchNorm2D(out_channels))
+            modules.append(nn.ReLU())
+            modules.append(nn.Conv2D(out_channels, out_channels, kernel_size,
                                      padding=(kernel_size % 2, kernel_size % 2)))
             modules.append(nn.BatchNorm2D(out_channels))
             modules.append(nn.ReLU())
@@ -28,32 +30,25 @@ class CRNN(paddle.nn.Layer):
         last_channel = input_shape[0]
         for block, (n_channel, n_layer, n_kernel, k_pool) in enumerate(zip(channels, layers, kernels, pools)):
             for layer in range(1, n_layer + 1):
-                addmod(last_channel, n_channel, n_kernel)
+                addmod(f'{block + 1}{layer}', last_channel, n_channel, n_kernel)
                 last_channel = n_channel
             modules.append(nn.MaxPool2D(k_pool))
         modules.append(nn.Dropout(0.25))
         self.cnn = nn.Sequential(*modules)
 
-        self.lstm = nn.LSTM(input_size=512, hidden_size=int(channels[-1] / 2), num_layers=2,
+        self.lstm = nn.LSTM(input_size=256, hidden_size=int(channels[-1] / 2), num_layers=2,
                             direction='bidirectional')
-        self.fc = nn.Linear(in_features=512, out_features=n_classes)
+        self.fc = nn.Linear(in_features=256, out_features=n_classes)
         self._initialize_weights()
-
     def forward(self, x):
         x = self.cnn(x)
-        x = x.transpose([0, 3, 1, 2])
-        x = x.reshape([x.shape[0], x.shape[1], -1])
-        x = x.transpose([1, 0, 2])
+        x = x.transpose([0, 3, 1, 2])  # 将宽度维度转为序列长度
+        x = x.reshape([x.shape[0], x.shape[1], -1])  # [batch_size, seq_len, features]
+        x = x.transpose([1, 0, 2])  # [seq_len, batch_size, features]
         x, _ = self.lstm(x)
         x = self.fc(x)
         #print(x)
         return x
-
-    def infer_features(self):
-        x = paddle.zeros(shape=[1] + list(self.input_shape))
-        x = self.cnn(x)
-        x = x.reshape([x.shape[0], -1, x.shape[-1]])
-        return x.shape[1]
 
     def _initialize_weights(self):
         import paddle
