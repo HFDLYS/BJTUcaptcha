@@ -8,3 +8,4 @@ ipython
 accelerate
 beautifulsoup4
 matplotlib
+onnxruntime

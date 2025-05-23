@@ -1,3 +1,8 @@
 __pycache__/
 .gitgnore
 captcha.jpg
+/datasets_color_ok
+/datasets_ok
+/final
+log.txt
+/.idea

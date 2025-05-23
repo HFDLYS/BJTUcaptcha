@@ -11,9 +11,9 @@ class CRNN(paddle.nn.Layer):
     def __init__(self, n_classes, input_shape=(3, 42, 130)):
         super().__init__()
         self.input_shape = input_shape
-        # VGG13
+        # VGG16
         channels = [64, 128, 256, 512, 512]
-        layers = [2, 2, 2, 2, 2]
+        layers = [2, 2, 3, 3, 3]
         kernels = [3, 3, 3, 3, 3]
         pools = [2, 2, 2, 2, (2, 1)]
         modules = []
