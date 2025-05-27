@@ -6,6 +6,7 @@ captcha.jpg
 /final
 log.txt
 /.idea
+<<<<<<< HEAD
 /venv
 **.onnx
 **.log
@@ -16,3 +17,9 @@ gen2.py
 **.pt
 data_mnist_pytorch/**
 **.csv
+=======
+/datasets_final_ok
+/test_final
+/model
+/log
+>>>>>>> origin/stanley-paddle
