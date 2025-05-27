@@ -12,7 +12,9 @@ from PIL import Image
 import os
 import csv
 
-charset = [' '] + ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] + ['+', '-', '*'] + ['=']
+from tqdm import tqdm
+
+charset = [' '] + ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] + ['+', '-', '×'] + ['=']
 chardict = {}
 i = 0
 for char in charset:
@@ -37,9 +39,7 @@ class CapchaDataset(Dataset):
         img = paddle.vision.transforms.to_tensor(img_o)
         label = self.labels[index]
         label_length = len(label)
-        if len(label) == 4:
-            label = label + '  '
-        elif len(label) == 5:
+        while len(label) < 9:
             label = label + ' '
         label = list(label)
         for i in range(len(label)):
@@ -55,8 +55,8 @@ class CapchaDataset(Dataset):
 
 print('Loading data...🤔')
 
-data = 'datasets_final_ok/'
-csv_path = os.path.join(data, 'captcha_mapping.csv')
+data = 'real_final/'
+csv_path = os.path.join(data, 'labels.csv')
 img_path = []
 img_label = []
 with open(csv_path, mode='r', encoding='utf-8') as file:
@@ -68,7 +68,7 @@ with open(csv_path, mode='r', encoding='utf-8') as file:
         img_path.append(image_path)
         img_label.append(label)
 
-batch_size = 32
+batch_size = 64
 width, height = 130, 42
 input_shape = (3, height, width)
 
@@ -108,7 +108,7 @@ def decode(sequence):
     return ''.join(decoded)
 
 # log = open('log.txt', 'w+', encoding='utf-8')
-log_writer = LogWriter(logdir="./log")
+log_writer = LogWriter(logdir="./log_final", comment="200k")
 
 def eval_acc(targets, preds):
     preds_argmax = preds.detach().transpose([1, 2,0]).argmax(axis=1)
@@ -137,13 +137,15 @@ def test_eval_acc(targets, preds):
 def validate(model):
     model.eval()
     acc1 = []
-    for batch_id, data in enumerate(val_loader()):
-        img = data[0]
-        label = data[1][0]
-        predicts = model(img)
-        acc = eval_acc(label, predicts)
-        acc1.append(acc)
-    val_acc = paddle.to_tensor(acc1).mean().numpy()
+    
+    with paddle.no_grad():
+        for batch_id, data in enumerate(tqdm(val_loader(), desc="Validating", ncols=100)):
+            img = data[0]
+            label = data[1][0]
+            predicts = model(img)
+            acc = eval_acc(label, predicts)
+            acc1.append(acc)
+        val_acc = paddle.to_tensor(acc1).mean().numpy()
     model.train()
     return val_acc
 
@@ -162,7 +164,7 @@ def train(model, epochs=40, patience=5, stopping_acc=0.005):
 
     for epoch in range(epochs):
         acc1=[]
-        for batch_id, data in enumerate(train_loader()):
+        for batch_id, data in enumerate(tqdm(train_loader(), desc=f"Epoch {epoch+1}/{epochs}", ncols=100)):
             img = data[0]
             label = data[1][0]
             input_lengths = data[1][1].squeeze()
@@ -224,23 +226,25 @@ def test(model):
     model.eval()
     batch_size = 64
     acc1 = []
-    for batch_id, data in enumerate(test_loader()):
-        img = data[0]
-        label = data[1][0]
-        input_lengths = data[1][1].squeeze()  # 移除单维度 [batch_size,1] => [batch_size]
-        label_lengths = data[1][2].squeeze()
-        predicts = model(img)
-        preds_log_softmax = F.log_softmax(predicts, axis=-1)
-        loss = F.ctc_loss(preds_log_softmax, label, input_lengths, label_lengths)
-        acc = eval_acc(label, predicts)
-        acc1.append(acc)
-        if batch_id % 40 == 0:
-            print(
-                "batch_id: {}, loss is: {}, acc is: {}".format(
-                    batch_id, loss.numpy(), acc.numpy()
+    
+    with paddle.no_grad():
+        for batch_id, data in enumerate(tqdm(test_loader(), desc="Testing", ncols=100)):
+            img = data[0]
+            label = data[1][0]
+            input_lengths = data[1][1].squeeze()  # 移除单维度 [batch_size,1] => [batch_size]
+            label_lengths = data[1][2].squeeze()
+            predicts = model(img)
+            preds_log_softmax = F.log_softmax(predicts, axis=-1)
+            loss = F.ctc_loss(preds_log_softmax, label, input_lengths, label_lengths)
+            acc = eval_acc(label, predicts)
+            acc1.append(acc)
+            if batch_id % 40 == 0:
+                print(
+                    "batch_id: {}, loss is: {}, acc is: {}".format(
+                        batch_id, loss.numpy(), acc.numpy()
+                    )
                 )
-            )
-    print("acc is: {}".format(paddle.to_tensor(acc1).mean().numpy()))
+        print("acc is: {}".format(paddle.to_tensor(acc1).mean().numpy()))
 
 test(model)
 # log.close()
