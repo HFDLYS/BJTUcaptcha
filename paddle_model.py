@@ -15,7 +15,7 @@ class CRNN(paddle.nn.Layer):
         channels = [64, 128, 256, 512, 512]
         layers = [2, 2, 3, 3, 3]
         kernels = [3, 3, 3, 3, 3]
-        pools = [2, 2, 2, 2, (2, 1)]
+        pools = [2, 2, 2, (2,1), (2,1)]
         modules = []
 
         def addmod(in_channels, out_channels, kernel_size):
