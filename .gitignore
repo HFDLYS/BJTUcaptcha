@@ -6,3 +6,13 @@ captcha.jpg
 /final
 log.txt
 /.idea
+/venv
+**.onnx
+**.log
+**.png
+**.zip
+gen.py
+gen2.py
+**.pt
+data_mnist_pytorch/**
+**.csv
