@@ -2,7 +2,9 @@ import time
 
 import paddle
 import paddle.nn.functional as F
-from paddle_model import CRNN
+
+from encoder.res18.res18_encoder import CRNN
+
 from paddle.io import DataLoader,Dataset
 from paddle.vision.transforms import Compose, Normalize
 
@@ -14,14 +16,15 @@ import csv
 
 from tqdm import tqdm
 
-charset = [' '] + ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] + ['+', '-', '×'] + ['=']
+# charset = [' '] + ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] + ['+', '-', '×'] + ['=']
+charset = [' '] + ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] + ['+', '-', '*'] + ['=']
 chardict = {}
 i = 0
 for char in charset:
     chardict[char] = i
     i += 1
 
-model_name = 'crnn_' + time.strftime("%Y%m%d_%H%M%S")
+model_name = 'res18_encoder' + time.strftime("%Y%m%d_%H%M%S")
 
 paddle.device.set_device('gpu:0')
 class CapchaDataset(Dataset):
@@ -55,8 +58,8 @@ class CapchaDataset(Dataset):
 
 print('Loading data...🤔')
 
-data = 'real_final/'
-csv_path = os.path.join(data, 'labels.csv')
+data = 'datasets_color_ok/'
+csv_path = os.path.join(data, 'captcha_mapping.csv')
 img_path = []
 img_label = []
 with open(csv_path, mode='r', encoding='utf-8') as file:
@@ -68,7 +71,7 @@ with open(csv_path, mode='r', encoding='utf-8') as file:
         img_path.append(image_path)
         img_label.append(label)
 
-batch_size = 64
+batch_size = 32
 width, height = 130, 42
 input_shape = (3, height, width)
 
@@ -139,7 +142,7 @@ def validate(model):
     acc1 = []
     
     with paddle.no_grad():
-        for batch_id, data in enumerate(tqdm(val_loader(), desc="Validating", ncols=100)):
+        for batch_id, data in enumerate(tqdm(val_loader(), desc="Validating", ncols=100,leave=False)):
             img = data[0]
             label = data[1][0]
             predicts = model(img)
@@ -164,7 +167,7 @@ def train(model, epochs=40, patience=5, stopping_acc=0.005):
 
     for epoch in range(epochs):
         acc1=[]
-        for batch_id, data in enumerate(tqdm(train_loader(), desc=f"Epoch {epoch+1}/{epochs}", ncols=100)):
+        for batch_id, data in enumerate(tqdm(train_loader(), desc=f"Epoch {epoch+1}/{epochs}", ncols=100,leave=False)):
             img = data[0]
             label = data[1][0]
             input_lengths = data[1][1].squeeze()
@@ -228,7 +231,7 @@ def test(model):
     acc1 = []
     
     with paddle.no_grad():
-        for batch_id, data in enumerate(tqdm(test_loader(), desc="Testing", ncols=100)):
+        for batch_id, data in enumerate(tqdm(test_loader(), desc="Testing", ncols=100,leave=False)):
             img = data[0]
             label = data[1][0]
             input_lengths = data[1][1].squeeze()  # 移除单维度 [batch_size,1] => [batch_size]
