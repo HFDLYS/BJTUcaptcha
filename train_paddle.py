@@ -2,7 +2,9 @@ import time
 
 import paddle
 import paddle.nn.functional as F
-from paddle_model import CRNN
+
+# 这里可以修改引入的模型
+from paddle_model_vgg_CRNN import CRNN
 from paddle.io import DataLoader,Dataset
 from paddle.vision.transforms import Compose, Normalize
 
